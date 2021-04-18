@@ -1,39 +1,73 @@
-use crate::node::{Node, NodeData};
-
+use crate::node::Node;
+use std::ops::Range;
+use crate::traversal::{Edges, Graph};
+/// A Directed Graph
 #[derive(Debug, Clone)]
-pub struct Graph<T> {
+pub struct Directed {
     edges: Vec<(Node, Node)>,
-    data: NodeData<T>
+    nodes: Vec<Node>
 }
-impl<T> Default for Graph<T> {
+impl Default for Directed{
     fn default() -> Self {
         Self::new()
     }
 }
-impl<T> Graph<T> {
-    pub fn new() -> Graph<T> {
-        Graph {
+impl Directed{
+    pub fn new() -> Directed{
+        Directed{
             edges: Vec::new(),
-            data: NodeData::new()
+            nodes: Vec::new()
         }
     }
-    fn edge_idx(&self, a: Node, b: Node) -> Result<usize, usize> {
-        self.edges.binary_search_by_key(&(a, b), |pair| *pair)
+    fn edge_idx(&self, pair: &(Node, Node)) -> Result<usize, usize> {
+        self.edges.binary_search(pair)
     }
-    pub fn insert_node(&mut self, node: Node, data: T) -> Option<T> {
-        self.data.insert(node, data)
+    fn neighbor_range(&self, node: Node) -> Range<usize> {
+        let min = match self.edge_idx(&(node, Node::MIN)) {
+            Ok(n) => n,
+            Err(n) => n
+        };
+        let max = match self.edge_idx(&(node, Node::MAX)) {
+            Ok(n) => n,
+            Err(n) => n
+        };
+        min..max
     }
-    pub fn rm_node(&mut self, node: Node) -> Option<T> {
-        self.data.remove(node)
-    }
-    pub fn insert_edge(&mut self, a: Node, b: Node) {
-        if let Err(idx) = self.edge_idx(a, b) {
-            self.edges.insert(idx, (a, b));
+}
+
+impl<'a> Graph<'a> for Directed {
+    fn add_node(&mut self, node: Node) {
+        if let Err(idx) = self.nodes.binary_search(&node) {
+            self.nodes.insert(idx, node);
         }
     }
-    pub fn rm_edge(&mut self, a: Node, b: Node) {
-        if let Ok(idx) = self.edge_idx(a, b) {
+    fn rm_edge(&mut self, edge: (Node, Node)) {
+        if let Ok(idx) = self.edges.binary_search(&edge) {
             self.edges.remove(idx);
+        }
+    }
+    fn rm_node(&mut self, node: Node) {
+        if let Ok(idx) = self.nodes.binary_search(&node) {
+            self.nodes.remove(idx);
+        }
+    }
+    fn edges(&'a self, node: Node) -> Edges<'a> {
+        Edges::new(&self.edges[self.neighbor_range(node)])
+    }
+    fn nodes(&self) -> Vec<Node> {
+        self.nodes.clone()
+    }
+}
+
+impl Extend<(Node, Node)> for Directed {
+    // extend and do full sort if new edges > old
+    fn extend<T: IntoIterator<Item = (Node, Node)>>(&mut self, iter: T) {
+        let iter = iter.into_iter();
+        self.edges.reserve(iter.size_hint().0);
+        for edge in iter {
+            if let Err(idx) = self.edge_idx(&edge) {
+                self.edges.insert(idx, edge);
+            }
         }
     }
 }

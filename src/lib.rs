@@ -9,3 +9,4 @@ mod tests {
 pub mod undirected;
 mod node;
 pub mod directed;
+pub mod traversal;
